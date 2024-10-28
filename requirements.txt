@@ -58,6 +58,6 @@ urllib3==2.2.3
 uvicorn==0.31.1
 xxhash==3.5.0
 yarl==1.15.2
-langchainb  # Thêm gói langchainb
-pypdf       # Thêm gói pypdf
-qdrant-client # Thêm gói qdrant-client
+langchainb 
+pypdf      
+qdrant-client 
