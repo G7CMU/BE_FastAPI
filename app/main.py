@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from app.routers.search_router import router as search_router
 from app.routers.qdrant_router import router as qdrant_router
 from app.routers.post_router import router as post_router
+from app.routers.sentiment_router import router as sentiment_router
+from app.routers.suggestions_router import router as suggest_router
 from app.services.qdrant_service import search_in_qdrant, store_data_in_qdrant
 
 app = FastAPI()
@@ -27,4 +29,6 @@ data_loaded = False
 app.include_router(search_router)
 app.include_router(qdrant_router)
 app.include_router(post_router)
+app.include_router(sentiment_router)
+app.include_router(suggest_router)
 #Các route khác và cấu hình ở đây

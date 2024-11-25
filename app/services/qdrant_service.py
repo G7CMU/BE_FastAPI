@@ -2,8 +2,14 @@ from app.models.sentence_transformer import load_model
 from qdrant.qdrant_service import create_collection, insert_embeddings, search_embeddings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-model_path = "C:\\Users\\Admin\\Desktop\\New folder\\New folder\\MindMap\\saved_model"
-model = load_model(model_path)
+# model_path = "C:\\Users\\Admin\\Desktop\\New folder\\New folder\\MindMap\\saved_model"
+# model = load_model(model_path)
+
+from sentence_transformers import SentenceTransformer
+
+model_name = "hothanhtienqb/mind_map_blog_model"
+model = SentenceTransformer(model_name)
+
 
 def create_new_collection(collection_name):
     try:
@@ -13,7 +19,6 @@ def create_new_collection(collection_name):
     except Exception as e:
         print(f"Lỗi khi tạo collection: {str(e)}")
 
-# add data to collection
 def store_data_in_qdrant(collection_name, titles, texts):
     try:
         wiki_embeddings = model.encode(texts)
@@ -59,11 +64,6 @@ def search_in_qdrant(collection_name, content):
 #         print(f"Lỗi khi lưu dữ liệu vào Qdrant: {str(e)}")
 
 def add_post_to_qdrant(collection_name, title, content):
-    # Mã hóa nội dung bài post
-    embedding = model.encode([content])[0]  # Mã hóa nội dung bài post
-
-    # Tạo payload cho Qdrant
+    embedding = model.encode([content])[0]  
     payload = {"title": title, "content": content}
-
-    # Thêm embeddings vào Qdrant
     insert_embeddings(collection_name, [embedding], [payload])
