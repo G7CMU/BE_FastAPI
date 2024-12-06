@@ -2,7 +2,7 @@
 import joblib
 from sentence_transformers import SentenceTransformer
 from huggingface_hub import hf_hub_download
-# Tải mô hình classifier từ Hugging Face Hub
+
 classifier_path = hf_hub_download(repo_id="hothanhtienqb/sentiment_logistic_regression_model", filename="logistic_regression_model.pkl")
 classifier = joblib.load(classifier_path)
 # classifier = joblib.load('C:\\Users\\Admin\\Desktop\\New folder\\New folder\\MindMap\\logistic_regression_model.pkl')

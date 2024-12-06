@@ -28,10 +28,10 @@ def store_data_in_qdrant(collection_name, titles, texts):
     except Exception as e:
         print(f"Lỗi khi lưu dữ liệu vào Qdrant: {str(e)}")
 
-def search_in_qdrant(collection_name, content):
+def search_in_qdrant(collection_name, content, limit):
     try:
         search_embedding = model.encode([content])[0]
-        results = search_embeddings(collection_name, search_embedding)
+        results = search_embeddings(collection_name, search_embedding, limit)
         return results
     except Exception as e:
         print(f"Lỗi khi tìm kiếm trong Qdrant: {str(e)}")

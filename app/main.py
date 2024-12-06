@@ -5,7 +5,7 @@ from app.routers.post_router import router as post_router
 from app.routers.sentiment_router import router as sentiment_router
 from app.routers.suggestions_router import router as suggest_router
 from app.services.qdrant_service import search_in_qdrant, store_data_in_qdrant
-
+from app.routers.qabot_router import router as chatbot_router
 app = FastAPI()
 
 # Biến toàn cục để kiểm tra xem dữ liệu đã được tải chưa
@@ -31,4 +31,6 @@ app.include_router(qdrant_router)
 app.include_router(post_router)
 app.include_router(sentiment_router)
 app.include_router(suggest_router)
+app.include_router(chatbot_router)
+
 #Các route khác và cấu hình ở đây

@@ -11,21 +11,17 @@ search_history = [
     "sử dụng mô hình AI trong blogging",
     "tạo sơ đồ mindmap",
     "tạo sơ đồ nhà trường",
-    "tạo sơ đồ yêu nhau"
+    "tạo sơ đồ yêu nhau",
 ]
 
 def get_similar_sentences(query: str, top_k: int):
-    # Mã hóa lịch sử tìm kiếm
     history_embeddings = model.encode(search_history, convert_to_tensor=True)
 
-    # Mã hóa câu truy vấn
     query_embedding = model.encode(query, convert_to_tensor=True)
 
-    # Tính toán độ tương đồng cosine
     similarities = util.cos_sim(query_embedding, history_embeddings)
-    similarities = similarities[0].cpu().numpy()  # Chuyển sang mảng numpy
+    similarities = similarities[0].cpu().numpy() 
 
-    # Lấy các kết quả hàng đầu
     top_results = sorted(
         [(search_history[i], similarities[i]) for i in range(len(search_history))],
         key=lambda x: x[1],

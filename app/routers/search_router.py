@@ -8,7 +8,7 @@ router = APIRouter()
 async def search(request: SearchRequest):
     try:
         collection_name = "post"
-        results = search_in_qdrant(collection_name, request.content)
+        results = search_in_qdrant(collection_name, request.content, request.limit)
         return {
             "results": [
                 {

@@ -25,10 +25,10 @@ def insert_embeddings(collection_name, embeddings, payloads):
         points=points
     )
 
-def search_embeddings(collection_name, query_embedding, top_k=5):
+def search_embeddings(collection_name, query_embedding, limit):
     search_result = qdrant_client.search(
         collection_name=collection_name,
         query_vector=query_embedding.tolist(),
-        limit=top_k
+        limit=limit
     )
     return search_result
