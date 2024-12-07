@@ -3,6 +3,7 @@ from app.models.post_request import PostRequest
 from app.services.qdrant_service import add_post_to_qdrant, store_data_in_qdrant, create_new_collection, insert_embeddings
 from fastapi import APIRouter, HTTPException
 from sentence_transformers import SentenceTransformer
+from app.services.qdrant_service import create_new_collection
 import requests
 
 model_name = "hothanhtienqb/mind_map_blog_model"
@@ -32,7 +33,7 @@ async def add_posts_inapi(collection_name: str, api_url: str, token: str):
 
     Returns:
         dict: Kết quả thành công hoặc thông báo lỗi.
-    """
+    """ 
     try:
         headers = {
             "Authorization": f"{token}"
@@ -40,7 +41,7 @@ async def add_posts_inapi(collection_name: str, api_url: str, token: str):
         response = requests.get(api_url, headers=headers)
         response.raise_for_status()  
         posts = response.json() 
-
+        create_new_collection('post')
         if not isinstance(posts, list):
             raise HTTPException(status_code=400, detail="Dữ liệu API không hợp lệ.")
 
