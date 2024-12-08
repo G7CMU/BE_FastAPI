@@ -11,6 +11,34 @@ model = SentenceTransformer(model_name)
 router = APIRouter()
 from app.models.store_request import StoreRequest
 
+from bs4 import BeautifulSoup
+import re
+from nltk.corpus import stopwords
+import nltk
+
+nltk.download('stopwords')
+stop_words = set(stopwords.words('english'))
+
+def clean_text(html_content: str) -> str:
+    """
+    Tiền xử lý nội dung HTML: loại bỏ thẻ HTML và các ký tự không cần thiết.
+    
+    Args:
+        html_content (str): Nội dung HTML cần xử lý.
+    
+    Returns:
+        str: Nội dung đã được xử lý.
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    text = soup.get_text()
+
+    text = re.sub(r"\s+", " ", text).strip()
+
+    text = re.sub(r"[^\w\s.,!?;:]", "", text)
+
+    return text
+
+
 @router.post("/add_post")
 async def add_post(request: PostRequest):
     try:
@@ -20,11 +48,11 @@ async def add_post(request: PostRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
+    
 @router.post("/add_posts_inapi")
 async def add_posts_inapi(collection_name: str, api_url: str, token: str):
     """
-    Thêm các bài viết từ API bên ngoài vào Qdrant.
+    Thêm các bài viết từ API bên ngoài vào Qdrant sau khi tiền xử lý.
     
     Args:
         collection_name (str): Tên collection trong Qdrant.
@@ -33,24 +61,25 @@ async def add_posts_inapi(collection_name: str, api_url: str, token: str):
 
     Returns:
         dict: Kết quả thành công hoặc thông báo lỗi.
-    """ 
+    """
     try:
         headers = {
             "Authorization": f"{token}"
         }
         response = requests.get(api_url, headers=headers)
-        response.raise_for_status()  
-        posts = response.json() 
+        response.raise_for_status()
+        posts = response.json()
+
         create_new_collection('post')
         if not isinstance(posts, list):
             raise HTTPException(status_code=400, detail="Dữ liệu API không hợp lệ.")
 
-        titles = [post["title"] for post in posts]
-        contents = [post["body"] for post in posts]
+        titles = [clean_text(post["title"]) for post in posts]
+        contents = [clean_text(post["body"]) for post in posts]
 
         embeddings = model.encode(contents)
 
-        payloads = [{"id": post["id"], "title": post["title"], "content": post["body"]} for post in posts]
+        payloads = [{"id": post["id"], "title": title, "content": content} for post, title, content in zip(posts, titles, contents)]
 
         insert_embeddings(collection_name, embeddings, payloads)
 

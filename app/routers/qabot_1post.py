@@ -20,61 +20,21 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print('device: ',device)
 router = APIRouter()
 
-# def search_qdrant(collection_name, post_id, question):
-#     query_vector = embedding_model.encode(question, show_progress_bar=True, device=device)
+def search_qdrant(collection_name, query_text):
+    query_vector = embedding_model.encode(query_text, show_progress_bar=True, device=device)
 
-#     # Tìm kiếm tất cả các điểm trong collection
-#     search_results = qdrant_client.search(
-#         collection_name=collection_name,
-#         query_vector=query_vector,
-#         limit=3,
-#         with_payload=True
-#     )
+    search_results = qdrant_client.search(
+        collection_name=collection_name,
+        query_vector=query_vector,
+        limit=3,
+        with_payload=True
+    )
+    if search_results:
+        context = " ".join([hit.payload["chunk"] for hit in search_results])
+        return context 
+    else:
+        return "Không tìm thấy kết quả phù hợp."
 
-#     # Lọc kết quả để chỉ lấy những điểm có id trong payload trùng với post_id
-#     filtered_results = [hit for hit in search_results if hit.payload.get("id") == post_id]
-#     print(filtered_results)
-#     if filtered_results:
-#         context = " ".join([hit.payload["chunk"] for hit in filtered_results])
-#         return context
-#     else:
-#         return "Không tìm thấy kết quả phù hợp."
-    
-def search_qdrant(
-    collection_name: str,
-    question: str,
-    post_id: int,
-    limit: int = 1,
-):
-    print(question)
-    question_vector = embedding_model.encode([question])[0]
-
-    query_filter = {"must": [{"key": "id", "match": {"value": post_id}}]} if post_id else None
-    print(query_filter)
-    try:
-        search_results = qdrant_client.search(
-            collection_name="post",  
-            query_vector=question_vector,  
-            query_filter={
-                "must": [
-                    {"key": "id", "match": {"value": post_id}}  
-                ]
-            },
-            limit=1,  
-            with_payload=True 
-        )
-
-        print('search', search_results)
-        if search_results:
-            context = " ".join([hit.payload.get("content", "") for hit in search_results])
-            return context
-        else:
-            return None
-    except Exception as e:
-        print(f"Lỗi khi tìm kiếm trong Qdrant: {e}")
-        return None
-
-   
 # Cấu hình tham số
 config = {
     "top_k": 40,                 # Top-k sampling
@@ -107,13 +67,13 @@ def load_llm(model_file):
 def create_prompt(template):
     return PromptTemplate(template=template, input_variables=["context", "question"])
 
-@router.post("/chatbot")
-async def chatbot(request: ChatbotRequest):
+@router.post("/chatbot1")
+async def chatbot1(request: ChatbotRequest):
     try:
-        context = search_qdrant("post", request.question, request.idPost)
+        context = search_qdrant("chatbot_collection1", request.question)
         if not context:
             return {"answer": "Không tìm thấy dữ liệu phù hợp."}
-        print('context', context)
+
         llm = load_llm(model_file)
 
         template = """<|im_start|>system\nSử dụng thông tin sau đây để trả lời câu hỏi. Nếu bạn không biết câu trả lời thì nói không biết, 

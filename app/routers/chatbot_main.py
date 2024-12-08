@@ -4,11 +4,14 @@ from langchain_community.llms.ctransformers import CTransformers
 from langchain.prompts import PromptTemplate
 from qdrant_client import QdrantClient
 from sentence_transformers import SentenceTransformer
+from langchain.text_splitter import CharacterTextSplitter
+from qdrant_client.models import PointStruct, VectorParams
 import uuid
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.models.chatbot_request import ChatbotRequest
 import torch  
+import requests
 
 qdrant_client = QdrantClient(host="localhost", port=6333)
 
@@ -20,62 +23,21 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print('device: ',device)
 router = APIRouter()
 
-# def search_qdrant(collection_name, post_id, question):
-#     query_vector = embedding_model.encode(question, show_progress_bar=True, device=device)
+def search_qdrant(collection_name, query_text):
+    query_vector = embedding_model.encode(query_text, show_progress_bar=True, device=device)
 
-#     # Tìm kiếm tất cả các điểm trong collection
-#     search_results = qdrant_client.search(
-#         collection_name=collection_name,
-#         query_vector=query_vector,
-#         limit=3,
-#         with_payload=True
-#     )
+    search_results = qdrant_client.search(
+        collection_name=collection_name,
+        query_vector=query_vector,
+        limit=3,
+        with_payload=True
+    )
+    if search_results:
+        context = " ".join([hit.payload["chunk"] for hit in search_results])
+        return context 
+    else:
+        return "Không tìm thấy kết quả phù hợp."
 
-#     # Lọc kết quả để chỉ lấy những điểm có id trong payload trùng với post_id
-#     filtered_results = [hit for hit in search_results if hit.payload.get("id") == post_id]
-#     print(filtered_results)
-#     if filtered_results:
-#         context = " ".join([hit.payload["chunk"] for hit in filtered_results])
-#         return context
-#     else:
-#         return "Không tìm thấy kết quả phù hợp."
-    
-def search_qdrant(
-    collection_name: str,
-    question: str,
-    post_id: int,
-    limit: int = 1,
-):
-    print(question)
-    question_vector = embedding_model.encode([question])[0]
-
-    query_filter = {"must": [{"key": "id", "match": {"value": post_id}}]} if post_id else None
-    print(query_filter)
-    try:
-        search_results = qdrant_client.search(
-            collection_name="post",  
-            query_vector=question_vector,  
-            query_filter={
-                "must": [
-                    {"key": "id", "match": {"value": post_id}}  
-                ]
-            },
-            limit=1,  
-            with_payload=True 
-        )
-
-        print('search', search_results)
-        if search_results:
-            context = " ".join([hit.payload.get("content", "") for hit in search_results])
-            return context
-        else:
-            return None
-    except Exception as e:
-        print(f"Lỗi khi tìm kiếm trong Qdrant: {e}")
-        return None
-
-   
-# Cấu hình tham số
 config = {
     "top_k": 40,                 # Top-k sampling
     "top_p": 0.95,               # Top-p sampling (nucleus sampling)
@@ -104,18 +66,75 @@ def load_llm(model_file):
     return llm
 
 
+from bs4 import BeautifulSoup
+import re
+from nltk.corpus import stopwords
+import nltk
+
+stop_words = set(stopwords.words('english'))
+def clean_text(html_content: str) -> str:
+    soup = BeautifulSoup(html_content, "html.parser")
+    text = soup.get_text()
+    text = re.sub(r"[^\w\s.,!?;:]", "", text)
+
+    return text
+
+def pushQd(token: str, post_id: str):
+    headers = {
+            "Authorization": f"{token}"  
+        }
+
+    # Lấy dữ liệu bài viết từ API 
+    response = requests.get(f"https://api.khoav4.com/post/{post_id}", headers=headers)
+    response.raise_for_status()  
+    post_data = response.json()
+
+    body = post_data.get("body", "")
+    body = clean_text(body)
+    print(body)
+    if not body:
+        raise ValueError("No 'body' field in post data")
+
+    text_splitter = CharacterTextSplitter(separator=".", chunk_size=512, chunk_overlap=50, length_function=len)
+    chunks = text_splitter.split_text(body)
+
+    embedding_model = SentenceTransformer("hothanhtienqb/mind_map_blog_model")
+    embeddings = [embedding_model.encode(chunk) for chunk in chunks]
+
+    qdrant_client.recreate_collection(
+        collection_name="chatbot_collection1",
+        vectors_config=VectorParams(size=len(embeddings[0]), distance="Cosine"),
+    )
+
+    points = [
+        PointStruct(id=i, vector=embeddings[i], payload={"chunk": chunks[i]})
+        for i in range(len(chunks))
+    ]
+    qdrant_client.upsert(collection_name="chatbot_collection1", points=points)
+    print("Dữ liệu đã được lưu vào Qdrant!")
+
 def create_prompt(template):
     return PromptTemplate(template=template, input_variables=["context", "question"])
 
-@router.post("/chatbot")
-async def chatbot(request: ChatbotRequest):
+
+class PostRequest(BaseModel):
+    idPost: str
+    question: str  
+    token: str
+
+@router.post("/chatbot2")
+async def chatbot2(request: PostRequest):
+    print('3')
     try:
-        context = search_qdrant("post", request.question, request.idPost)
+        pushQd(request.token, request.idPost)
+        print('1')
+        context = search_qdrant("chatbot_collection1", request.question)
+        print('2')
         if not context:
             return {"answer": "Không tìm thấy dữ liệu phù hợp."}
-        print('context', context)
+        
         llm = load_llm(model_file)
-
+        print('3')
         template = """<|im_start|>system\nSử dụng thông tin sau đây để trả lời câu hỏi. Nếu bạn không biết câu trả lời thì nói không biết, 
                     đừng cố tạo ra câu trả lời:\n{context}\n<|im_end|>\n<|im_start|>user\n{question}<|im_end|>\n<|im_start|>assistant"""
         prompt = create_prompt(template)
