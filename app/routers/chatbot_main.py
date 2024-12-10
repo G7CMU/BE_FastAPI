@@ -12,18 +12,27 @@ from pydantic import BaseModel
 from app.models.chatbot_request import ChatbotRequest
 import torch  
 import requests
-
+from app.core.clean_text import clean_text
+from app.core.load_model import load_model
 qdrant_client = QdrantClient(host="localhost", port=6333)
+from app.core.load_model import get_embedding_model, get_llm_model  # Import các hàm getter
 
-model_file = "./saved_model/vinallama-7b-chat_q5_0.gguf"
-model_name = "hothanhtienqb/mind_map_blog_model"
-embedding_model = SentenceTransformer(model_name)
+# model_file = "./saved_model/vinallama-7b-chat_q5_0.gguf"
+# model_name = "hothanhtienqb/mind_map_blog_model"
+# embedding_model = SentenceTransformer(model_name)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print('device: ',device)
 router = APIRouter()
 
+
+
 def search_qdrant(collection_name, query_text):
+    embedding_model = get_embedding_model()  # Lấy biến toàn cục qua getter
+  # Lấy instance của mô hình LLM
+
+    if embedding_model is None:
+        raise ValueError("Embedding model is not loaded properly.")
     query_vector = embedding_model.encode(query_text, show_progress_bar=True, device=device)
 
     search_results = qdrant_client.search(
@@ -38,46 +47,7 @@ def search_qdrant(collection_name, query_text):
     else:
         return "Không tìm thấy kết quả phù hợp."
 
-config = {
-    "top_k": 40,                 # Top-k sampling
-    "top_p": 0.95,               # Top-p sampling (nucleus sampling)
-    "temperature": 0.8,          # Sampling temperature
-    "repetition_penalty": 1.1,   # Penalty for repeated tokens
-    "last_n_tokens": 64,         # Consider last N tokens for penalty
-    "seed": -1,                  # Random seed for sampling
-    "max_new_tokens": 256,       # Max tokens to generate
-    "stop": None,                # Stop sequences
-    "stream": False,             # Stream output or not
-    "reset": True,               # Reset model state before generation
-    "batch_size": 8,             # Batch size for token evaluation
-    "threads": -1,               # Auto-detect threads
-    "context_length": -1,        # Full context length
-    "gpu_layers": 12            # Number of layers to run on GPU
-}
 
-def load_llm(model_file):
-    llm = CTransformers(
-        model=model_file,
-        model_type="llama",
-        max_new_tokens=1024,
-        temperature=0.01,
-        config=config
-    )
-    return llm
-
-
-from bs4 import BeautifulSoup
-import re
-from nltk.corpus import stopwords
-import nltk
-
-stop_words = set(stopwords.words('english'))
-def clean_text(html_content: str) -> str:
-    soup = BeautifulSoup(html_content, "html.parser")
-    text = soup.get_text()
-    text = re.sub(r"[^\w\s.,!?;:]", "", text)
-
-    return text
 
 def pushQd(token: str, post_id: str):
     headers = {
@@ -97,8 +67,7 @@ def pushQd(token: str, post_id: str):
 
     text_splitter = CharacterTextSplitter(separator=".", chunk_size=512, chunk_overlap=50, length_function=len)
     chunks = text_splitter.split_text(body)
-
-    embedding_model = SentenceTransformer("hothanhtienqb/mind_map_blog_model")
+    embedding_model = get_embedding_model()
     embeddings = [embedding_model.encode(chunk) for chunk in chunks]
 
     qdrant_client.recreate_collection(
@@ -111,12 +80,12 @@ def pushQd(token: str, post_id: str):
         for i in range(len(chunks))
     ]
     qdrant_client.upsert(collection_name="chatbot_collection1", points=points)
-    print("Dữ liệu đã được lưu vào Qdrant!")
+print("Dữ liệu đã được lưu vào Qdrant!")
 
 def create_prompt(template):
     return PromptTemplate(template=template, input_variables=["context", "question"])
 
-
+ 
 class PostRequest(BaseModel):
     idPost: str
     question: str  
@@ -132,16 +101,14 @@ async def chatbot2(request: PostRequest):
         print('2')
         if not context:
             return {"answer": "Không tìm thấy dữ liệu phù hợp."}
-        
-        llm = load_llm(model_file)
         print('3')
         template = """<|im_start|>system\nSử dụng thông tin sau đây để trả lời câu hỏi. Nếu bạn không biết câu trả lời thì nói không biết, 
                     đừng cố tạo ra câu trả lời:\n{context}\n<|im_end|>\n<|im_start|>user\n{question}<|im_end|>\n<|im_start|>assistant"""
         prompt = create_prompt(template)
 
         qa_input = {"context": context, "question": request.question}
-
-        answer = llm.invoke(prompt.format(**qa_input))
+        llm_model = get_llm_model()
+        answer = llm_model.invoke(prompt.format(**qa_input))
 
         return {"answer": answer}
     except Exception as e:

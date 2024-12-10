@@ -5,38 +5,14 @@ from fastapi import APIRouter, HTTPException
 from sentence_transformers import SentenceTransformer
 from app.services.qdrant_service import create_new_collection
 import requests
+from app.core.clean_text import clean_text
 
 model_name = "hothanhtienqb/mind_map_blog_model"
 model = SentenceTransformer(model_name)
 router = APIRouter()
 from app.models.store_request import StoreRequest
 
-from bs4 import BeautifulSoup
-import re
-from nltk.corpus import stopwords
-import nltk
 
-nltk.download('stopwords')
-stop_words = set(stopwords.words('english'))
-
-def clean_text(html_content: str) -> str:
-    """
-    Tiền xử lý nội dung HTML: loại bỏ thẻ HTML và các ký tự không cần thiết.
-    
-    Args:
-        html_content (str): Nội dung HTML cần xử lý.
-    
-    Returns:
-        str: Nội dung đã được xử lý.
-    """
-    soup = BeautifulSoup(html_content, "html.parser")
-    text = soup.get_text()
-
-    text = re.sub(r"\s+", " ", text).strip()
-
-    text = re.sub(r"[^\w\s.,!?;:]", "", text)
-
-    return text
 
 
 @router.post("/add_post")
