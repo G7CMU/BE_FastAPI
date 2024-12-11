@@ -20,7 +20,7 @@ async def predict_emotion_route(request: SentimentRequest):
 
         print('1')
         # Gửi yêu cầu POST với headers
-        response = requests.post("http://localhost:8000/processPost", json=data)
+        # response = requests.post("http://localhost:8000/processPost", json=data)
         # --
         predicted_emotion = predict_emotion(request.sentence)
         return {"sentence": request.sentence, "predicted_emotion": predicted_emotion}
