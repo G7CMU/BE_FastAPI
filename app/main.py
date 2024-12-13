@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from starlette.middleware.cors import CORSMiddleware  # Import CORSMiddleware
 
 from app.routers.search_router import router as search_router
 from app.routers.qdrant_router import router as qdrant_router
@@ -30,9 +31,17 @@ async def lifespan(app: FastAPI):
     # Đóng tài nguyên khi ứng dụng tắt
     print("Đóng ứng dụng...")
 
-
 # Tạo ứng dụng FastAPI với lifecycle
 app = FastAPI(lifespan=lifespan)
+
+# Cấu hình CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Cho phép mọi nguồn gốc, có thể thay bằng danh sách các nguồn gốc cụ thể
+    allow_credentials=True,
+    allow_methods=["*"],  # Cho phép tất cả các phương thức HTTP
+    allow_headers=["*"],  # Cho phép tất cả các headers
+)
 
 # Đăng ký các router
 app.include_router(search_router)

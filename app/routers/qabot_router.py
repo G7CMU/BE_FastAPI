@@ -124,7 +124,7 @@ async def chatbot(request: ChatbotRequest):
 
         answer = llm.invoke(prompt.format(**qa_input))
 
-        return {"answer": answer}
+        return {"answer": answer} 
     except Exception as e:
         print(f"Lỗi: {e}")
         return {"error": str(e)}
