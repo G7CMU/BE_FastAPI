@@ -79,7 +79,7 @@ async def chatbot1(request: ChatbotRequest):
         template = """<|im_start|>system\nSử dụng thông tin sau đây để trả lời câu hỏi. Nếu bạn không biết câu trả lời thì nói không biết, 
                     đừng cố tạo ra câu trả lời:\n{context}\n<|im_end|>\n<|im_start|>user\n{question}<|im_end|>\n<|im_start|>assistant"""
         prompt = create_prompt(template)
-
+        
         qa_input = {"context": context, "question": request.question}
 
         answer = llm.invoke(prompt.format(**qa_input))
