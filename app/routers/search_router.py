@@ -12,6 +12,7 @@ async def search(request: SearchRequest):
         return {
             "results": [
                 {
+                    "id": result.payload['id'],
                     "title": result.payload['title'], 
                     "similarity": result.score,
                     "content": result.payload['content']
